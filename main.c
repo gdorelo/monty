@@ -1,47 +1,54 @@
 #include "monty.h"
 
-/* global struct to hold flag for queue and stack length */
-var_t var;
+int num = 0;
+int data_format = 0;
+int exit_check = 0;
 
 /**
- * main - Monty bytecode interpreter
- * @argc: number of arguments passed
- * @argv: array of argument strings
- *
- * Return: EXIT_SUCCESS on success or EXIT_FAILURE on failure
+ * main - interpreter for Monty ByteCodes files
+ * @argc: arguments count
+ * @argv: arguments passed in the command line
+ * Return: TBD
  */
-int main(int argc, char *argv[])
-{
-	stack_t *stack = NULL;
-	unsigned int line_number = 0;
-	FILE *fs = NULL;
-	char *lineptr = NULL, *op = NULL;
-	size_t n = 0;
 
-	var.queue = 0;
-	var.stack_len = 0;
+int main(int argc, char **argv)
+{
+	char *buf = NULL, *file = NULL, *token = NULL, *array[2];
+	size_t bufsize = 0, line_number = 1;
+	FILE *fp = NULL;
+	void (*ptr)();
+	stack_t *head = NULL;
+
 	if (argc != 2)
+		dprintf(2, "USAGE: monty file\n"), exit(EXIT_FAILURE);
+	file = argv[1];
+	fp = fopen(file, "r");
+	if (fp == NULL)
+		dprintf(2, "Error: Can't open file %s\n", argv[1]), exit(EXIT_FAILURE);
+	while (getline(&buf, &bufsize, fp) != -1)
 	{
-		dprintf(STDOUT_FILENO, "USAGE: monty file\n");
-		exit(EXIT_FAILURE);
-	}
-	fs = fopen(argv[1], "r");
-	if (fs == NULL)
-	{
-		dprintf(STDOUT_FILENO, "Error: Can't open file %s\n", argv[1]);
-		exit(EXIT_FAILURE);
-	}
-	on_exit(free_lineptr, &lineptr);
-	on_exit(free_stack, &stack);
-	on_exit(m_fs_close, fs);
-	while (getline(&lineptr, &n, fs) != -1)
-	{
-		line_number++;
-		op = strtok(lineptr, "\n\t\r ");
-		if (op != NULL && op[0] != '#')
+		token = strtok(buf, " \t\n");
+		array[0] = token;
+		if (!iscomment(array[0]))
 		{
-			get_op(op, &stack, line_number);
+			line_number++;
+			continue;
 		}
+		if (strcmp("push", array[0]) == 0)
+		{
+			token = strtok(NULL, " \t\n");
+			array[1] = token;
+			num = isnumber(array[1], line_number);
+			exit_failure_check(buf, fp, head);
+		}
+		ptr = get_opcode_func(array[0]);
+		if (ptr != NULL)
+			(*ptr)(&head, line_number);
+		else
+			dprintf(2, "L%i: unknown instruction %s\n", (int)line_number, array[0]);
+		exit_failure_check(buf, fp, head);
+		line_number++;
 	}
-	exit(EXIT_SUCCESS);
+	free(buf), fclose(fp), free_stackt(head);
+	return (0);
 }
